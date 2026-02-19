@@ -3,6 +3,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from ticket_analyzer.classifier import ClassifierService
+from ticket_analyzer.llm.factory import get_provider
 from ticket_analyzer.schemas import AnalyzeResponse, TicketRequest
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ async def analyze_ticket(request: TicketRequest) -> AnalyzeResponse:
     """
     logger.info("POST /analyze", extra={"ticket_id": request.ticket_id})
     try:
-        analysis = await ClassifierService().analyze(request)
+        analysis = await ClassifierService(get_provider()).analyze(request)
     except RuntimeError as exc:
         logger.error("Classification failed", extra={"error": str(exc)})
         raise HTTPException(status_code=502, detail="Classification failed. Please try again.") from exc

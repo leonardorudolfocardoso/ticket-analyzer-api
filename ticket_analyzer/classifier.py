@@ -1,10 +1,10 @@
 import json
 import logging
 
-from openai import AsyncOpenAI
 from pydantic import ValidationError
 
 from ticket_analyzer.config import settings
+from ticket_analyzer.llm import LLMProvider
 from ticket_analyzer.schemas import TicketAnalysis, TicketRequest
 
 logger = logging.getLogger(__name__)
@@ -32,8 +32,8 @@ Return ONLY the JSON object. No markdown, no code fences, no extra text.\
 
 
 class ClassifierService:
-    def __init__(self) -> None:
-        self._client = AsyncOpenAI(api_key=settings.openai_api_key)
+    def __init__(self, provider: LLMProvider) -> None:
+        self._provider = provider
 
     async def analyze(self, request: TicketRequest) -> TicketAnalysis:
         logger.info(
@@ -45,7 +45,8 @@ class ClassifierService:
 
         for attempt in range(1, settings.max_retries + 1):
             try:
-                result = await self._call_llm(request.text)
+                raw = await self._provider.classify(SYSTEM_PROMPT, request.text)
+                result = TicketAnalysis.model_validate_json(raw)
                 logger.info(
                     "Classification succeeded",
                     extra={"ticket_id": request.ticket_id, "attempt": attempt},
@@ -65,31 +66,3 @@ class ClassifierService:
         raise RuntimeError(
             f"Classification failed after {settings.max_retries} attempts"
         ) from last_error
-
-    async def _call_llm(self, text: str) -> TicketAnalysis:
-        response = await self._client.chat.completions.create(
-            model=settings.llm_model,
-            temperature=0.0,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": text},
-            ],
-        )
-
-        raw = response.choices[0].message.content
-        if not raw:
-            raise ValueError("LLM returned an empty response")
-
-        usage = response.usage
-        logger.info(
-            "LLM token usage",
-            extra={
-                "prompt_tokens": usage.prompt_tokens if usage else None,
-                "completion_tokens": usage.completion_tokens if usage else None,
-                "total_tokens": usage.total_tokens if usage else None,
-                "model": response.model,
-            },
-        )
-
-        return TicketAnalysis.model_validate_json(raw)
