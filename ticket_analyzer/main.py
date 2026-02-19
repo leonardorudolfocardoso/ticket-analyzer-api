@@ -1,5 +1,4 @@
 import logging
-import logging.config
 
 from fastapi import FastAPI
 
@@ -7,32 +6,8 @@ from ticket_analyzer.config import settings
 from ticket_analyzer.routes import router
 
 
-def configure_logging() -> None:
-    logging.config.dictConfig(
-        {
-            "version": 1,
-            "disable_existing_loggers": False,
-            "formatters": {
-                "json": {
-                    "format": "%(asctime)s %(levelname)s %(name)s %(message)s",
-                },
-            },
-            "handlers": {
-                "console": {
-                    "class": "logging.StreamHandler",
-                    "formatter": "json",
-                },
-            },
-            "root": {
-                "level": settings.log_level.upper(),
-                "handlers": ["console"],
-            },
-        }
-    )
-
-
 def create_app() -> FastAPI:
-    configure_logging()
+    logging.basicConfig(level=settings.log_level.upper())
 
     app = FastAPI(
         title="Ticket Analyzer API",
