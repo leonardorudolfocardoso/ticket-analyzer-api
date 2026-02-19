@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from ticket_analyzer.classifier import ClassifierService
-from ticket_analyzer.llm.providers import get_provider
+from ticket_analyzer.llm import get_provider
 from ticket_analyzer.schemas import AnalyzeResponse, TicketRequest
 
 logger = logging.getLogger(__name__)
