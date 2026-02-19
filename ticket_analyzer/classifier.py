@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 
 from pydantic import ValidationError
 
@@ -36,31 +37,29 @@ class ClassifierService:
         self._provider = provider
 
     async def analyze(self, request: TicketRequest) -> TicketAnalysis:
-        logger.info(
-            "Analyzing ticket",
-            extra={"ticket_id": request.ticket_id, "text_length": len(request.text)},
-        )
+        logger.info("Analyzing ticket | ticket_id=%s text_length=%d", request.ticket_id, len(request.text))
 
         last_error: Exception | None = None
+        t0 = time.perf_counter()
 
         for attempt in range(1, settings.max_retries + 1):
             try:
                 raw = await self._provider.classify(SYSTEM_PROMPT, request.text)
                 result = TicketAnalysis.model_validate_json(raw)
                 logger.info(
-                    "Classification succeeded",
-                    extra={"ticket_id": request.ticket_id, "attempt": attempt},
+                    "Classification succeeded | ticket_id=%s attempt=%d latency_ms=%d",
+                    request.ticket_id,
+                    attempt,
+                    round((time.perf_counter() - t0) * 1000),
                 )
                 return result
             except (ValidationError, ValueError, json.JSONDecodeError) as exc:
                 last_error = exc
                 logger.warning(
-                    "Classification attempt failed",
-                    extra={
-                        "ticket_id": request.ticket_id,
-                        "attempt": attempt,
-                        "error": str(exc),
-                    },
+                    "Classification attempt failed | ticket_id=%s attempt=%d error=%s",
+                    request.ticket_id,
+                    attempt,
+                    exc,
                 )
 
         raise RuntimeError(

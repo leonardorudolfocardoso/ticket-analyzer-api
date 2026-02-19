@@ -1,4 +1,5 @@
 import logging
+import time
 
 from openai import AsyncOpenAI
 
@@ -13,7 +14,7 @@ class OpenAIProvider:
 
     Uses `response_format={"type": "json_object"}` to enforce JSON output
     at the API level, and `temperature=0.0` for deterministic results.
-    Token usage is logged on every call for cost observability.
+    Token usage and API latency are logged on every call for cost observability.
 
     Configured via:
         LLM_MODEL       - model to use (default: gpt-4o-mini)
@@ -31,6 +32,7 @@ class OpenAIProvider:
             ValueError: If the API returns an empty message content.
             openai.OpenAIError: On API-level failures (auth, rate limit, network).
         """
+        t0 = time.perf_counter()
         response = await self._client.chat.completions.create(
             model=settings.llm_model,
             temperature=0.0,
@@ -40,6 +42,7 @@ class OpenAIProvider:
                 {"role": "user", "content": user_text},
             ],
         )
+        latency_ms = round((time.perf_counter() - t0) * 1000)
 
         raw = response.choices[0].message.content
         if not raw:
@@ -47,14 +50,12 @@ class OpenAIProvider:
 
         usage = response.usage
         logger.info(
-            "LLM token usage",
-            extra={
-                "provider": "openai",
-                "model": response.model,
-                "prompt_tokens": usage.prompt_tokens if usage else None,
-                "completion_tokens": usage.completion_tokens if usage else None,
-                "total_tokens": usage.total_tokens if usage else None,
-            },
+            "LLM call completed | model=%s latency_ms=%d input_tokens=%s output_tokens=%s total_tokens=%s",
+            response.model,
+            latency_ms,
+            usage.prompt_tokens if usage else None,
+            usage.completion_tokens if usage else None,
+            usage.total_tokens if usage else None,
         )
 
         return raw
