@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 
 from ticket_analyzer.classifier import ClassifierService
 from ticket_analyzer.schemas import AnalyzeResponse, TicketRequest
@@ -10,15 +10,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1", tags=["analyze"])
 
 
-def get_classifier() -> ClassifierService:
-    return ClassifierService()
-
-
 @router.post("/analyze", response_model=AnalyzeResponse, status_code=200)
-async def analyze_ticket(
-    request: TicketRequest,
-    classifier: ClassifierService = Depends(get_classifier),
-) -> AnalyzeResponse:
+async def analyze_ticket(request: TicketRequest) -> AnalyzeResponse:
     """
     Accepts raw support ticket text and returns a structured classification.
 
@@ -31,7 +24,7 @@ async def analyze_ticket(
     """
     logger.info("POST /analyze", extra={"ticket_id": request.ticket_id})
     try:
-        analysis = await classifier.analyze(request)
+        analysis = await ClassifierService().analyze(request)
     except RuntimeError as exc:
         logger.error("Classification failed", extra={"error": str(exc)})
         raise HTTPException(status_code=502, detail="Classification failed. Please try again.") from exc
