@@ -17,9 +17,18 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pyright (>=1.1.408,<2.0.0)",
-    "ruff (>=0.15.1,<0.16.0)"
+    "ruff (>=0.15.1,<0.16.0)",
+    "pytest (>=9.0.0,<10.0.0)",
+    "pytest-asyncio (>=1.3.0,<2.0.0)",
+    "httpx (>=0.28.0,<1.0.0)"
 ]
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+
+[tool.poetry]
+packages = [{ include = "ticket_analyzer" }]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
