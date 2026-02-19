@@ -21,7 +21,7 @@ def create_app() -> FastAPI:
 
     @app.get("/health", tags=["ops"])
     async def health() -> dict[str, str]:
-        return {"status": "ok", "env": settings.app_env}
+        return {"status": "ok"}
 
     return app
 

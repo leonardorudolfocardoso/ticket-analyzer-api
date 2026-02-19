@@ -13,7 +13,6 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4o-mini"
     max_retries: int = 3
     log_level: str = "INFO"
-    app_env: str = "development"
 
 
 settings = Settings()
