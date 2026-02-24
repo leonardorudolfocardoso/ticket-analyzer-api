@@ -3,8 +3,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from ticket_analyzer.classifier import ClassifierService
-from ticket_analyzer.schemas import TicketRequest
+from ticket_analyzer.llm import PROMPT, analyze, retry
+from ticket_analyzer.llm import LLMResult
+from ticket_analyzer.http import TicketRequest
 
 VALID_PAYLOAD = json.dumps({
     "category": "authentication",
@@ -16,14 +17,14 @@ VALID_PAYLOAD = json.dumps({
 })
 
 
-@pytest.fixture
-def provider():
-    return AsyncMock()
-
-
-@pytest.fixture
-def service(provider):
-    return ClassifierService(provider)
+def _llm_result(raw_json: str) -> LLMResult:
+    return LLMResult(
+        raw_json=raw_json,
+        model="gpt-4o-mini",
+        latency_ms=100,
+        input_tokens=50,
+        output_tokens=80,
+    )
 
 
 @pytest.fixture
@@ -34,46 +35,120 @@ def request_():
     )
 
 
-class TestClassifierService:
-    async def test_successful_classification(self, service, provider, request_):
-        provider.classify = AsyncMock(return_value=VALID_PAYLOAD)
+# ── retry ─────────────────────────────────────────────────────────────────────
 
-        result = await service.analyze(request_)
+async def test_retry_succeeds_on_first_attempt():
+    fn = AsyncMock(return_value="ok")
 
-        assert result.category == "authentication"
-        assert result.priority == "high"
-        assert result.sentiment == "negative"
-        assert result.confidence == 0.92
+    result = await retry(fn, max_retries=3, retryable=(ValueError,))
 
-    async def test_retries_on_invalid_json(self, service, provider, request_):
-        provider.classify = AsyncMock(side_effect=[
-            "not valid json",
-            "still not json",
-            VALID_PAYLOAD,
-        ])
+    assert result == "ok"
+    assert fn.call_count == 1
 
-        result = await service.analyze(request_)
 
-        assert result.category == "authentication"
-        assert provider.classify.call_count == 3
+async def test_retry_succeeds_after_failures():
+    fn = AsyncMock(side_effect=[ValueError(), ValueError(), "ok"])
 
-    async def test_retries_on_invalid_schema(self, service, provider, request_):
-        bad_payload = json.dumps({"category": "unknown_category", "priority": "high"})
-        provider.classify = AsyncMock(side_effect=[bad_payload, VALID_PAYLOAD])
+    result = await retry(fn, max_retries=3, retryable=(ValueError,))
 
-        result = await service.analyze(request_)
+    assert result == "ok"
+    assert fn.call_count == 3
 
-        assert result.category == "authentication"
-        assert provider.classify.call_count == 2
 
-    async def test_raises_after_all_retries_exhausted(self, service, provider, request_):
-        provider.classify = AsyncMock(return_value="not valid json")
+async def test_retry_raises_after_exhaustion():
+    fn = AsyncMock(side_effect=ValueError("bad"))
 
-        with pytest.raises(RuntimeError, match="Classification failed after"):
-            await service.analyze(request_)
+    with pytest.raises(RuntimeError, match="Failed after 3 attempts"):
+        await retry(fn, max_retries=3, retryable=(ValueError,))
 
-    async def test_raises_on_empty_response(self, service, provider, request_):
-        provider.classify = AsyncMock(return_value="")
+    assert fn.call_count == 3
 
-        with pytest.raises(RuntimeError, match="Classification failed after"):
-            await service.analyze(request_)
+
+async def test_retry_does_not_catch_non_retryable():
+    fn = AsyncMock(side_effect=RuntimeError("fatal"))
+
+    with pytest.raises(RuntimeError, match="fatal"):
+        await retry(fn, max_retries=3, retryable=(ValueError,))
+
+    assert fn.call_count == 1
+
+
+async def test_retry_respects_max_retries():
+    fn = AsyncMock(side_effect=ValueError())
+
+    with pytest.raises(RuntimeError):
+        await retry(fn, max_retries=1, retryable=(ValueError,))
+
+    assert fn.call_count == 1
+
+
+# ── analyze ───────────────────────────────────────────────────────────────────
+
+async def test_successful_classification(request_):
+    classify_fn = AsyncMock(return_value=_llm_result(VALID_PAYLOAD))
+
+    result = await analyze(request_, classify_fn)
+
+    assert result.analysis.category == "authentication"
+    assert result.analysis.priority == "high"
+    assert result.analysis.sentiment == "negative"
+    assert result.analysis.confidence == 0.92
+    assert result.llm_result.model == "gpt-4o-mini"
+
+
+async def test_analyze_calls_classify_fn_with_correct_args(request_):
+    classify_fn = AsyncMock(return_value=_llm_result(VALID_PAYLOAD))
+
+    await analyze(request_, classify_fn)
+
+    classify_fn.assert_called_once_with(PROMPT, request_.text)
+
+
+async def test_analyze_returns_llm_metadata(request_):
+    classify_fn = AsyncMock(return_value=_llm_result(VALID_PAYLOAD))
+
+    result = await analyze(request_, classify_fn)
+
+    assert result.llm_result.latency_ms == 100
+    assert result.llm_result.input_tokens == 50
+    assert result.llm_result.output_tokens == 80
+
+
+async def test_retries_on_invalid_json(request_):
+    classify_fn = AsyncMock(side_effect=[
+        _llm_result("not valid json"),
+        _llm_result("still not json"),
+        _llm_result(VALID_PAYLOAD),
+    ])
+
+    result = await analyze(request_, classify_fn)
+
+    assert result.analysis.category == "authentication"
+    assert classify_fn.call_count == 3
+
+
+async def test_retries_on_invalid_schema(request_):
+    bad_payload = json.dumps({"category": "unknown_category", "priority": "high"})
+    classify_fn = AsyncMock(side_effect=[
+        _llm_result(bad_payload),
+        _llm_result(VALID_PAYLOAD),
+    ])
+
+    result = await analyze(request_, classify_fn)
+
+    assert result.analysis.category == "authentication"
+    assert classify_fn.call_count == 2
+
+
+async def test_raises_after_all_retries_exhausted(request_):
+    classify_fn = AsyncMock(return_value=_llm_result("not valid json"))
+
+    with pytest.raises(RuntimeError, match="Failed after"):
+        await analyze(request_, classify_fn)
+
+
+async def test_raises_on_empty_response(request_):
+    classify_fn = AsyncMock(return_value=_llm_result(""))
+
+    with pytest.raises(RuntimeError, match="Failed after"):
+        await analyze(request_, classify_fn)
