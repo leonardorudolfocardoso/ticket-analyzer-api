@@ -99,9 +99,10 @@ make logs        # tail container logs
 ## Testing
 
 ```bash
-make test-build  # run pytest in Docker (isolated test DB)
-make test        # run without rebuilding
-make test-local  # run locally with .venv/bin/pytest
+make test-build        # run pytest in Docker (isolated test DB)
+make test              # run without rebuilding
+make test-watch        # watch mode in Docker (reruns on file changes)
+make test-local        # run locally with .venv/bin/pytest
 ```
 
 No real API calls are made in tests — the LLM provider is mocked.
