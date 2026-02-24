@@ -35,7 +35,7 @@ async def analyze_ticket(
     """
     logger.info("POST /analyze", extra={"ticket_id": request.ticket_id})
     try:
-        result = await analyze(request, classifier=get_provider())
+        result = await analyze(request, classify_fn=get_provider())
     except RuntimeError as exc:
         logger.error("Classification failed", extra={"error": str(exc)})
         raise HTTPException(status_code=502, detail="Classification failed. Please try again.") from exc
