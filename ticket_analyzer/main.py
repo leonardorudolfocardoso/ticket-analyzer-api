@@ -1,9 +1,18 @@
 import logging
+from contextlib import asynccontextmanager
+from collections.abc import AsyncGenerator
 
 from fastapi import FastAPI
 
 from ticket_analyzer.config import settings
+from ticket_analyzer.database import dispose_engine
 from ticket_analyzer.routes import router
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncGenerator[None, None]:
+    yield
+    await dispose_engine()
 
 
 def create_app() -> FastAPI:
@@ -15,6 +24,7 @@ def create_app() -> FastAPI:
         version="0.1.0",
         docs_url="/docs",
         redoc_url="/redoc",
+        lifespan=lifespan,
     )
 
     app.include_router(router)
