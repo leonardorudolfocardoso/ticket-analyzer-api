@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ticket_analyzer.database import get_db
-from ticket_analyzer.llm import analyze, get_provider
+from ticket_analyzer.llm import analyze, get_classify_fn
 from ticket_analyzer import queries
 from ticket_analyzer.http import (
     AnalyzeResponse,
@@ -35,7 +35,7 @@ async def analyze_ticket(
     """
     logger.info("POST /analyze", extra={"ticket_id": request.ticket_id})
     try:
-        result = await analyze(request, classify_fn=get_provider())
+        result = await analyze(request, classify_fn=get_classify_fn())
     except RuntimeError as exc:
         logger.error("Classification failed", extra={"error": str(exc)})
         raise HTTPException(status_code=502, detail="Classification failed. Please try again.") from exc

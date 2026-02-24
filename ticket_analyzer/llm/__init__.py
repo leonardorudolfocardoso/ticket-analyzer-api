@@ -47,7 +47,7 @@ class ClassifyFn(Protocol):
     Protocol for any callable that sends a prompt to an LLM and returns an LLMResult.
 
     To add a new provider, implement a plain async function with this signature
-    and register it in `get_provider` below.
+    and register it in `get_classify_fn` below.
     """
 
     async def __call__(self, system_prompt: str, user_text: str) -> LLMResult: ...
@@ -137,9 +137,9 @@ async def analyze(request: TicketRequest, classify_fn: ClassifyFn) -> Classifica
     return result
 
 
-def get_provider(provider: str = settings.llm_provider) -> ClassifyFn:
+def get_classify_fn(provider: str = settings.llm_provider) -> ClassifyFn:
     """
-    Return the LLM classify function for the given provider name.
+    Return the classify function for the given provider name.
 
     Defaults to the value of the LLM_PROVIDER environment variable.
     To add a new provider, implement the ClassifyFn protocol and add

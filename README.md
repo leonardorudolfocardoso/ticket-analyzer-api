@@ -130,5 +130,5 @@ ticket_analyzer/
    ```python
    async def classify(system_prompt: str, user_text: str) -> LLMResult: ...
    ```
-2. Add a branch in `get_provider()` in `llm/__init__.py`.
+2. Add a branch in `get_classify_fn()` in `llm/__init__.py`.
 3. Set `LLM_PROVIDER=<provider>` in your `.env`.
