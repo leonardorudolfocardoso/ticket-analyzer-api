@@ -44,6 +44,10 @@ test-build:
 test-local:
 	.venv/bin/pytest tests/ -v
 
+.PHONY: test-watch
+test-watch:
+	$(TEST) run --rm api ptw . --now
+
 # ── Shared ────────────────────────────────────────────────────────────────────
 
 .PHONY: logs
