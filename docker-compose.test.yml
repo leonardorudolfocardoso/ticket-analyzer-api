@@ -1,0 +1,25 @@
+services:
+  api:
+    build:
+      target: test
+    command: pytest tests/ -v
+    environment:
+      - ENV=test
+      - DATABASE_URL=postgresql+asyncpg://tickets:tickets@db:5432/tickets_test
+    volumes:
+      # Bind-mount source so tests reflect local changes without a rebuild
+      - ./ticket_analyzer:/app/ticket_analyzer
+      - ./tests:/app/tests
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    environment:
+      POSTGRES_DB: tickets_test
+    volumes:
+      - pgdata_test:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+
+volumes:
+  pgdata_test:

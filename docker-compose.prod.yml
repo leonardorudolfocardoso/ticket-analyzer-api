@@ -1,0 +1,6 @@
+services:
+  api:
+    # gunicorn + UvicornWorker is set as the default CMD in the Dockerfile
+    restart: always
+    environment:
+      - ENV=prod

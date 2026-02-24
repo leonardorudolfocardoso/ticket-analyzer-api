@@ -1,0 +1,13 @@
+services:
+  api:
+    command: uvicorn ticket_analyzer.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      # Bind-mount source for live reload
+      - ./ticket_analyzer:/app/ticket_analyzer
+    environment:
+      - ENV=dev
+
+  db:
+    ports:
+      # Expose DB port locally for direct access (e.g. psql, GUI clients)
+      - "5432:5432"
