@@ -2,6 +2,12 @@
 
 AI-powered FastAPI service that classifies customer support tickets using LLMs. Returns structured JSON with category, priority, sentiment, confidence, a suggested response, and reasoning.
 
+## Motivation
+
+Customer support teams often struggle to triage large volumes of tickets quickly.
+This project explores how LLM-based systems can assist support operations by automatically
+classifying ticket urgency and routing them to the appropriate team.
+
 ## Features
 
 - LLM-powered ticket classification via OpenAI
