@@ -45,21 +45,17 @@ Interactive docs: `http://localhost:8000/docs`
 | `MAX_RETRIES` | `3` | Retry attempts on validation failure |
 | `LOG_LEVEL` | `INFO` | Python log level |
 
-## API
+## Examples
 
-### `POST /api/v1/analyze`
+Classify a ticket:
 
-Classify a support ticket.
-
-**Request**
-```json
-{
-  "text": "I was charged twice this month.",
-  "ticket_id": "TKT-001"
-}
+```bash
+curl -s -X POST http://localhost:8000/api/v1/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"text": "I was charged twice this month.", "ticket_id": "TKT-001"}' \
+  | python3 -m json.tool
 ```
 
-**Response**
 ```json
 {
   "ticket_id": "TKT-001",
@@ -68,30 +64,11 @@ Classify a support ticket.
     "priority": "high",
     "sentiment": "negative",
     "confidence": 0.95,
-    "suggested_response": "We're sorry to hear about the duplicate charge...",
-    "reasoning": "Customer reports an unexpected duplicate billing event."
+    "suggested_response": "We're sorry to hear about the duplicate charge. We'll investigate and issue a refund within 3–5 business days.",
+    "reasoning": "Customer reports an unexpected duplicate billing event, which is a high-priority billing issue requiring immediate attention."
   }
 }
 ```
-
-| Field | Type | Values |
-|---|---|---|
-| `category` | string | `billing` `technical_issue` `authentication` `feature_request` `general_question` `other` |
-| `priority` | string | `low` `medium` `high` `urgent` |
-| `sentiment` | string | `positive` `neutral` `negative` |
-| `confidence` | float | `0.0` – `1.0` |
-
-### `GET /api/v1/tickets`
-
-Return all classification records, newest first.
-
-### `GET /api/v1/tickets/{id}`
-
-Return a single classification record by UUID.
-
-### `GET /health`
-
-Liveness check. Returns `{"status": "ok"}`.
 
 ## Development
 
